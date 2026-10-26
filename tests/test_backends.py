@@ -34,7 +34,7 @@ class BackendTests(unittest.TestCase):
         args = bridge.call_args.kwargs
         self.assertEqual(args['timeout'], 15)
         self.assertEqual(args['command'], [sys.executable, '-u',
-            str(Path(backends.__file__).with_name('policy_worker.py')).replace('\\\\', '/'),
+            Path(backends.__file__).with_name('policy_worker.py').as_posix(),
             '--repo', r'D:\\dev\\GameScaling',
             '--base-url', 'http://127.0.0.1:18080/v1'])
         self.assertEqual(backends.backend_target('cloud')['model_root'], 'THUSI-Lab/GameScaling-9B-S3')
