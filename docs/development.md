@@ -11,7 +11,7 @@ python scripts/check_repository.py
 git diff --check
 ```
 
-这些命令只做离线验证。部分控制器测试依赖官方 `gamescaling` 包，未安装时明确 skip；SLAM 中有一项可选的真实会话回归，未提供本地数据时跳过。CI 不替代官方模型或真实数据集成测试。CI 分别运行 Windows 控制器测试与 Linux SLAM 几何测试，不编译 UE、不运行游戏或模型。
+这些命令只做离线验证。部分控制器测试依赖官方 `gamescaling` 包，未安装时明确 skip；SLAM 中有一项可选的真实会话回归，未提供本地数据时跳过。CI 分别运行 Windows 控制器测试与 Linux SLAM 几何测试，不编译 UE、不运行游戏或模型。
 
 ## UE5 采集开发
 
@@ -25,8 +25,8 @@ git diff --check
 
 ## 控制器与模型
 
-控制器说明见 [controller/README.md](../controller/README.md)。官方 `gamescaling` 客户端和模型权重需自行获取，GPU 推理环境与离线测试环境分开管理。
+控制器说明与跨电脑路径配置见 [controller/README.md](../controller/README.md)。官方 `gamescaling` 客户端和模型权重需自行获取，GPU 推理环境与离线测试环境分开管理。
 
-现有 `backends.py`、`wsl_bridge.py`、`policy_worker.py`、`evaluate_saved.py` 保留早期实验的 WSL 默认路径，云端脚本保留特定平台目录。它们不包含登录凭据，但不能直接跨电脑复用。实际模型连接前需检查路径、发行版、上游版本和模型服务。后续应通过专门 PR 配置化，同时保持端点限制和动作安全边界。
+WSL 桥接需要显式配置 `GAMESCALING_WSL_DISTRO`、`GAMESCALING_WSL_CLIENT_REPO` 和 `GAMESCALING_WSL_PYTHON`；cloud worker 需要 `GAMESCALING_WINDOWS_CLIENT_REPO`。缺少必要配置时，启动前会给出明确错误。机器路径不得写入共享代码默认值。
 
-不要把 `.env` 当成当前代码已经支持的配置机制；当前入口仍主要依赖参数及现有默认值。云端服务只监听回环地址，通过自己的隧道访问；不得把隧道命令或账户资料提交到仓库。
+实际模型连接前需检查路径、发行版、上游版本和模型服务。云端服务只监听回环地址，通过自己的隧道访问；不得把隧道命令或账户资料提交到仓库。端点与模型身份校验保持启用，离线测试不需要 WSL、模型权重或游戏。
