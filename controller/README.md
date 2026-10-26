@@ -12,6 +12,28 @@ python -m unittest discover -s tests -v
 
 这些测试不启动模型或操作游戏。依赖官方 `gamescaling` 包的测试未满足依赖时明确跳过。
 
+## 跨电脑配置
+
+控制器不再假设固定的 WSL 发行版、用户目录或虚拟环境。启动本地 WSL 后端前，在当前 shell 配置以下变量：
+
+| 变量 | 用途 | 示例 |
+|---|---|---|
+| `GAMESCALING_WSL_DISTRO` | 已安装的 WSL 发行版名称 | `Ubuntu-22.04` |
+| `GAMESCALING_WSL_CLIENT_REPO` | WSL 内官方 GameScaling 客户端仓库的绝对路径 | `/home/alice/src/GameScaling` |
+| `GAMESCALING_WSL_PYTHON` | WSL 内含客户端依赖的 Python 解释器绝对路径 | `/home/alice/venvs/game/bin/python` |
+| `GAMESCALING_WINDOWS_CLIENT_REPO` | Windows 侧可访问的客户端仓库路径，供 cloud worker 导入 | `D:\\dev\\GameScaling` |
+
+示例 PowerShell 配置（请替换为本机实际路径）：
+
+```powershell
+$env:GAMESCALING_WSL_DISTRO = "Ubuntu-22.04"
+$env:GAMESCALING_WSL_CLIENT_REPO = "/home/alice/src/GameScaling"
+$env:GAMESCALING_WSL_PYTHON = "/home/alice/venvs/game/bin/python"
+$env:GAMESCALING_WINDOWS_CLIENT_REPO = "D:\\dev\\GameScaling"
+```
+
+WSL 后端所需配置缺失时会在启动子进程前报告缺少的变量。cloud worker 只使用显式配置的 Windows 客户端仓库路径。推理端点仍固定为回环地址，模型 ID 与模型根目录仍需精确匹配；这些配置不会开放任意 URL 或绕过模型身份检查。路径配置不包含凭据。
+
 ## 组件
 
 | 文件 | 作用 |
@@ -31,7 +53,7 @@ python -m unittest discover -s tests -v
 
 ## 接入前的限制
 
-当前代码仍有原实验机器的 WSL 用户和目录默认值，集中在桥接、后端和评估入口。换电脑必须检查实际路径；公开仓库不承诺直接运行模型链路。GPU 推理运行时、官方客户端、权重、云机器、隧道与凭据需要独立配置，仓库不包含这些资源。
+GPU 推理运行时、官方客户端、权重、云机器、隧道与凭据需要独立配置，仓库不包含这些资源。
 
 现有端点固定为本地回环地址，不应为接入方便直接去掉校验或开放公网服务。云端服务脚本含 `--trust-remote-code`，正式运行前应审查所选上游版本及远程代码。
 
@@ -42,5 +64,3 @@ python -m unittest discover -s tests -v
 程序状态成功只代表对应流程结束。已发送输入数不代表游戏接受动作或任务完成；模型建议不等于已执行历史。真实历史仅应提交确认完成的动作，过期或部分执行必须独立记录。
 
 本地输出默认位于忽略的 `output/local-control` 下，可能包括截图、原始模型输出、窗口信息和运行日志。分享时先脱敏并审查内容，不直接上传整包。
-
-跨电脑配置化、独立上游依赖记录与完整集成验收是后续工作；详见 [开发指南](../docs/development.md) 和 [路线图](../docs/roadmap.md)。
