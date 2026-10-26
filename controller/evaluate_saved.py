@@ -129,7 +129,8 @@ def main():
     parser.add_argument('--base-url', default='http://127.0.0.1:8000/v1')
     parser.add_argument('--controls', action='store_true', help='Canonical W/S and official Doom; use --repeats 3 for 9 requests')
     parser.add_argument('--doom-defaults', action='store_true', help='Only Doom, official temperature=1/reasoning=true defaults; use --max-tokens 2048')
-    parser.add_argument('--official-repo', default=os.environ.get('GAMESCALING_WSL_CLIENT_REPO'),\n                        help='Official client repository path; defaults to GAMESCALING_WSL_CLIENT_REPO')
+    parser.add_argument('--official-repo', default=os.environ.get('GAMESCALING_WSL_CLIENT_REPO'),
+                        help='Official client repository path; defaults to GAMESCALING_WSL_CLIENT_REPO')
     args = parser.parse_args()
     args.controls = args.controls or args.doom_defaults
     output = Path(args.output) / datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')
