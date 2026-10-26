@@ -1,5 +1,6 @@
 """Fixed inference targets with machine-specific paths supplied by configuration."""
 import os
+from pathlib import Path
 import sys
 
 from controller.wsl_bridge import WSLBridge
@@ -32,7 +33,7 @@ def create_bridge(backend='local', *, timeout=15):
         return WSLBridge(timeout=timeout)
     repo = _required_path('GAMESCALING_WINDOWS_CLIENT_REPO')
     return WSLBridge(command=[sys.executable, '-u',
-        __import__('pathlib').Path(__file__).with_name('policy_worker.py').as_posix(),
+        Path(__file__).with_name('policy_worker.py').as_posix(),
         '--repo', repo, '--base-url', target['base_url']], timeout=timeout)
 
 
