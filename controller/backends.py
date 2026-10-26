@@ -1,5 +1,5 @@
-"""Fixed inference targets. Neither jobs nor command-line flags accept arbitrary URLs."""
-from pathlib import Path
+"""Fixed inference targets with machine-specific paths supplied by configuration."""
+import os
 import sys
 
 from controller.wsl_bridge import WSLBridge
@@ -11,7 +11,13 @@ _TARGETS = {
     'cloud': {'backend': 'cloud', 'base_url': 'http://127.0.0.1:18080/v1',
               'model_id': 'gamescaling', 'model_root': 'THUSI-Lab/GameScaling-9B-S3'},
 }
-_WINDOWS_REPO = r'\\wsl.localhost\Ubuntu\home\ziran\gamescaling-lab\GameScaling'
+
+
+def _required_path(variable):
+    value = os.environ.get(variable)
+    if not value or not value.strip():
+        raise ValueError(f'Missing controller configuration: set {variable}')
+    return value
 
 
 def backend_target(backend='local'):
@@ -24,9 +30,10 @@ def create_bridge(backend='local', *, timeout=15):
     target = backend_target(backend)
     if backend == 'local':
         return WSLBridge(timeout=timeout)
+    repo = _required_path('GAMESCALING_WINDOWS_CLIENT_REPO')
     return WSLBridge(command=[sys.executable, '-u',
-        str(Path(__file__).with_name('policy_worker.py')), '--repo', _WINDOWS_REPO,
-        '--base-url', target['base_url']], timeout=timeout)
+        __import__('pathlib').Path(__file__).with_name('policy_worker.py').as_posix(),
+        '--repo', repo, '--base-url', target['base_url']], timeout=timeout)
 
 
 def validate_health(health, backend='local'):
