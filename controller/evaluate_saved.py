@@ -133,6 +133,8 @@ def main():
                         help='Official client repository path; defaults to GAMESCALING_WSL_CLIENT_REPO')
     args = parser.parse_args()
     args.controls = args.controls or args.doom_defaults
+    if args.controls and not args.official_repo:
+        parser.error('Set GAMESCALING_WSL_CLIENT_REPO or pass --official-repo when using --controls')
     output = Path(args.output) / datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')
     output.mkdir(parents=True, exist_ok=False)
     session = requests.Session()
