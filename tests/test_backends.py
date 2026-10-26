@@ -1,6 +1,7 @@
 import contextlib
 import io
 import json
+import os
 from pathlib import Path
 import sys
 import tempfile
@@ -10,30 +11,61 @@ from unittest.mock import patch, MagicMock
 
 try:
     from controller import backends
+    from controller.wsl_bridge import build_wsl_command
 except ImportError:
     backends = None
+    build_wsl_command = None
 
 
 class BackendTests(unittest.TestCase):
     def setUp(self):
         self.assertIsNotNone(backends, 'fixed backend profiles are required')
 
-    def test_default_local_keeps_wsl_bridge_command(self):
+    def test_default_local_keeps_loopback_target(self):
         with patch.object(backends, 'WSLBridge') as bridge:
             backends.create_bridge()
         bridge.assert_called_once_with(timeout=15)
         self.assertEqual(backends.backend_target()['base_url'], 'http://127.0.0.1:8000/v1')
 
-    def test_cloud_uses_windows_python_fixed_repo_and_loopback_tunnel(self):
-        with patch.object(backends, 'WSLBridge') as bridge:
+    def test_cloud_uses_configured_client_repo_and_loopback_tunnel(self):
+        with patch.dict(os.environ, {'GAMESCALING_WINDOWS_CLIENT_REPO': r'D:\\dev\\GameScaling'}), \\
+                patch.object(backends, 'WSLBridge') as bridge:
             backends.create_bridge('cloud')
         args = bridge.call_args.kwargs
         self.assertEqual(args['timeout'], 15)
         self.assertEqual(args['command'], [sys.executable, '-u',
-            str(Path(backends.__file__).with_name('policy_worker.py')),
-            '--repo', r'\\wsl.localhost\Ubuntu\home\ziran\gamescaling-lab\GameScaling',
+            str(Path(backends.__file__).with_name('policy_worker.py')).replace('\\\\', '/'),
+            '--repo', r'D:\\dev\\GameScaling',
             '--base-url', 'http://127.0.0.1:18080/v1'])
         self.assertEqual(backends.backend_target('cloud')['model_root'], 'THUSI-Lab/GameScaling-9B-S3')
+
+    def test_cloud_missing_repository_configuration_fails_clearly(self):
+        with patch.dict(os.environ, {}, clear=True), patch.object(backends, 'WSLBridge') as bridge:
+            with self.assertRaisesRegex(ValueError, 'GAMESCALING_WINDOWS_CLIENT_REPO'):
+                backends.create_bridge('cloud')
+            bridge.assert_not_called()
+
+    def test_two_simulated_machine_configurations_build_distinct_wsl_commands(self):
+        profiles = [
+            ({'GAMESCALING_WSL_DISTRO': 'Ubuntu-22.04',
+              'GAMESCALING_WSL_CLIENT_REPO': '/home/alice/src/GameScaling',
+              'GAMESCALING_WSL_PYTHON': '/home/alice/venvs/game/bin/python'},
+             ['wsl.exe', '-d', 'Ubuntu-22.04', '--', '/home/alice/venvs/game/bin/python',
+              '/mnt/c/app/controller/policy_worker.py', '--repo', '/home/alice/src/GameScaling']),
+            ({'GAMESCALING_WSL_DISTRO': 'Debian',
+              'GAMESCALING_WSL_CLIENT_REPO': '/work/gamescaling',
+              'GAMESCALING_WSL_PYTHON': '/opt/venvs/gs/bin/python'},
+             ['wsl.exe', '-d', 'Debian', '--', '/opt/venvs/gs/bin/python',
+              '/mnt/c/app/controller/policy_worker.py', '--repo', '/work/gamescaling']),
+        ]
+        for env, expected in profiles:
+            with self.subTest(env=env):
+                self.assertEqual(build_wsl_command(r'C:\\app\\controller\\policy_worker.py',
+                                                   environ=env), expected)
+
+    def test_missing_wsl_configuration_fails_before_process_creation(self):
+        with self.assertRaisesRegex(ValueError, 'GAMESCALING_WSL_DISTRO.*GAMESCALING_WSL_CLIENT_REPO.*GAMESCALING_WSL_PYTHON'):
+            build_wsl_command(environ={})
 
     def test_exact_id_and_root_required(self):
         for backend in ('local', 'cloud'):
@@ -83,12 +115,12 @@ class BackendTests(unittest.TestCase):
                 if len(calls) == 2:
                     stop.trigger('test complete')
                 return {'status':'passed'}
-            with patch.object(b, 'session_path', return_value=root), \
-                    patch.object(b, 'BoundWindow', return_value=window), \
-                    patch.object(b.wa, 'GameWindow'), \
-                    patch.object(b.wa, 'EmergencyHotkey', return_value=MagicMock(return_value=False)), \
-                    patch.object(b.wa, 'input_access_report', return_value={}), \
-                    patch.object(b, 'require_worker_access'), \
+            with patch.object(b, 'session_path', return_value=root), \\
+                    patch.object(b, 'BoundWindow', return_value=window), \\
+                    patch.object(b.wa, 'GameWindow'), \\
+                    patch.object(b.wa, 'EmergencyHotkey', return_value=MagicMock(return_value=False)), \\
+                    patch.object(b.wa, 'input_access_report', return_value={}), \\
+                    patch.object(b, 'require_worker_access'), \\
                     patch.object(b, 'execute_job', side_effect=job):
                 self.assertEqual(b.worker('test', backend='cloud'), 0)
             self.assertEqual(calls, ['cloud','cloud'])
@@ -102,9 +134,9 @@ class BackendTests(unittest.TestCase):
             stop=b.SessionStop(root, time.monotonic()+20)
             window=MagicMock()
             window.info={'pid':123}
-            with patch.object(b, 'require_worker_access'), \
-                    patch.object(b.wa, 'input_access_report', return_value={}), \
-                    patch.object(b, 'save_original', return_value=False), \
+            with patch.object(b, 'require_worker_access'), \\
+                    patch.object(b.wa, 'input_access_report', return_value={}), \\
+                    patch.object(b, 'save_original', return_value=False), \\
                     patch.object(b.run_agent, 'main', return_value=0) as main:
                 result=b.execute_job(b.validate_request({'mode':'check'}),root/'job',
                                      window,stop,MagicMock(),backend='cloud')
@@ -123,13 +155,13 @@ class BackendTests(unittest.TestCase):
                         'models':{'data':[{'id':'wrong','root':backends.backend_target(backend)['model_root']}]}}}
                     window=MagicMock()
                     window.info={'pid':123}
-                    with patch.object(agent,'create_bridge',return_value=bridge) as factory, \
-                            patch.object(agent,'GameWindow',return_value=window), \
-                            patch.object(agent,'list_game_windows',return_value=[]), \
-                            patch.object(agent,'input_access_report',return_value={}), \
-                            patch.object(agent,'GpuSampler'), \
-                            patch.object(agent,'EmergencyHotkey'), \
-                            patch.object(agent,'NativeInput',side_effect=AssertionError('No inputs')), \
+                    with patch.object(agent,'create_bridge',return_value=bridge) as factory, \\
+                            patch.object(agent,'GameWindow',return_value=window), \\
+                            patch.object(agent,'list_game_windows',return_value=[]), \\
+                            patch.object(agent,'input_access_report',return_value={}), \\
+                            patch.object(agent,'GpuSampler'), \\
+                            patch.object(agent,'EmergencyHotkey'), \\
+                            patch.object(agent,'NativeInput',side_effect=AssertionError('No inputs')), \\
                             contextlib.redirect_stdout(io.StringIO()):
                         code=agent.main([mode,'--backend',backend,'--countdown','0','--output',tmp])
                     self.assertEqual(code,1)
