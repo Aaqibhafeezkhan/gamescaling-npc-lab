@@ -17,12 +17,6 @@ def windows_to_wsl(path):
     return '/mnt/' + p.drive[0].lower() + '/' + '/'.join(p.parts[1:])
 
 
-def _configured(value, variable):
-    value = value or os.environ.get(variable)
-    if not isinstance(value, str) or not value.strip():
-        raise ValueError(f'Missing configuration: set {variable} or pass its constructor argument')
-    return value
-
 
 def build_wsl_command(worker_path=None, *, distro=None, repo=None, python=None, environ=None):
     """Build a WSL command from explicit values or environment configuration."""
